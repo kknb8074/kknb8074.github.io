@@ -272,6 +272,24 @@
     box-shadow:0 8px 26px rgba(0,0,0,.5);
   }
   .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  /* ---------- 按钮点击反馈（涟漪 + 回弹脉冲） ---------- */
+  .enter,.row-go{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .row-go{position:relative;overflow:hidden;isolation:isolate;
+    transition:transform .13s cubic-bezier(.22,1,.36,1),box-shadow .18s,filter .18s}
+  .row-go:active{transform:scale(.93);filter:brightness(1.14);
+    box-shadow:0 0 0 2px rgba(232,196,106,.55),0 0 22px rgba(232,196,106,.5)}
+  .enter{isolation:isolate}
+  .enter:active{transform:scale(.955)}
+  .row-go.pressing{animation:punch .30s cubic-bezier(.22,1,.36,1)}
+  .enter.pressing{animation:punchL .30s cubic-bezier(.22,1,.36,1)}
+  @keyframes punch{0%{transform:scale(1)}28%{transform:scale(.90)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+  @keyframes punchL{0%{transform:scale(1)}28%{transform:scale(.955)}60%{transform:scale(1.012)}100%{transform:scale(1)}}
+  .tapfx{position:absolute;z-index:-1;pointer-events:none;border-radius:50%;
+    transform:translate(-50%,-50%) scale(0);animation:tapfx .44s ease-out forwards;
+    background:radial-gradient(circle,rgba(255,248,224,.95) 0%,rgba(232,196,106,.6) 40%,rgba(232,196,106,0) 72%)}
+  @keyframes tapfx{0%{transform:translate(-50%,-50%) scale(0);opacity:.95}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+  @media (prefers-reduced-motion:reduce){.row-go.pressing,.enter.pressing{animation:none}.tapfx{display:none}}
 </style>
 <!-- 51.LA 网站统计 -->
 <script charset="UTF-8" id="LA_COLLECT" src="https://sdk.51.la/js-sdk-pro.min.js"></script>
@@ -556,6 +574,54 @@
       }
     });
   });
+</script>
+
+<script>
+  // ---- 按钮点击反馈：先出反馈动效，反馈结束才真正跳转 ----
+  (function(){
+    var DELAY = 260;                                   // 反馈时长(ms)，动效播完再跳
+    document.querySelectorAll('.enter, .row-go').forEach(function(a){
+      a.addEventListener('click', function(e){
+        if(a.dataset.goaway === '1') return;           // 第二阶段：放行原生跳转
+        if(e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        var row = a.closest ? a.closest('.row') : null;
+        if(row && row.classList.contains('off')) return;
+        if(a.dataset.busy === '1') return;
+
+        e.preventDefault();
+        a.dataset.busy = '1';
+
+        // 涟漪：从点击位置扩散
+        var r = a.getBoundingClientRect();
+        var x = (e.clientX || (r.left + r.width / 2)) - r.left;
+        var y = (e.clientY || (r.top + r.height / 2)) - r.top;
+        var size = Math.max(r.width, r.height) * 2.2;
+        var sp = document.createElement('span');
+        sp.className = 'tapfx';
+        sp.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + size + 'px;height:' + size + 'px';
+        a.appendChild(sp);
+        a.classList.add('pressing');
+        try{ if(navigator.vibrate) navigator.vibrate(14); }catch(err){}
+
+        var href = a.getAttribute('href') || '';
+        setTimeout(function(){
+          a.dataset.goaway = '1';
+          if(/^intent:/i.test(href)){
+            a.click();                                 // QQ 链接：交给浏览器原生唤起
+          }else{
+            var w = window.open(href, '_blank');
+            if(w){ try{ w.opener = null; }catch(err){} }
+            else { location.href = href; }             // 被弹窗拦截 → 当前页跳
+          }
+          setTimeout(function(){
+            delete a.dataset.goaway; delete a.dataset.busy;
+            a.classList.remove('pressing');
+            if(sp.parentNode) sp.parentNode.removeChild(sp);
+          }, 900);
+        }, DELAY);
+      });
+    });
+  })();
 </script>
 </body>
 </html>
