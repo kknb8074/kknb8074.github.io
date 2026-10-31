@@ -52,18 +52,6 @@
     content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
     background:linear-gradient(160deg, rgba(232,196,106,.10), transparent 38%);
   }
-  /* 外层卡片呼吸光：店铺 / 网盘下载 */
-  .card.shop,.card.disk{animation:cardBreathe 3.8s ease-in-out infinite}
-  @keyframes cardBreathe{
-    0%,100%{
-      border-color:rgba(232,196,106,.30);
-      box-shadow:0 0 20px rgba(232,196,106,.12), inset 0 1px 0 rgba(255,255,255,.04);
-    }
-    50%{
-      border-color:rgba(255,226,150,.95);
-      box-shadow:0 0 34px rgba(232,196,106,.55), 0 0 90px rgba(232,196,106,.34), 0 0 150px rgba(232,196,106,.16), inset 0 0 18px rgba(232,196,106,.16);
-    }
-  }
 
   /* ---------- 头像 ---------- */
   .hero{padding:30px 20px 24px;text-align:center}
@@ -237,37 +225,38 @@
   .music{
     user-select:none;-webkit-user-select:none;
     position:fixed;left:14px;top:calc(14px + env(safe-area-inset-top));z-index:20;
-    min-width:66px;padding:8px 10px 6px;border-radius:16px;
-    border:1px solid rgba(232,196,106,.32);background:rgba(14,14,19,.88);
+    padding:5px 15px 5px 5px;border-radius:999px;
+    border:1px solid rgba(232,196,106,.34);background:rgba(14,14,19,.88);
     backdrop-filter:blur(6px);
-    display:none;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    display:none;align-items:center;gap:9px;
     color:var(--gold);font-family:inherit;
-    transition:transform .15s, box-shadow .25s, border-color .25s;
+    transition:transform .15s, box-shadow .3s, border-color .3s;
   }
   .music:active{transform:scale(.94)}
-  .music.playing{border-color:rgba(232,196,106,.8);box-shadow:0 0 22px rgba(232,196,106,.45)}
+  .music.playing{border-color:rgba(232,196,106,.62);box-shadow:0 0 20px rgba(232,196,106,.26)}
 
-  .bars{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:18px}
-  .bars i{
-    display:block;width:3px;height:5px;border-radius:2px;
-    transition:height .08s linear;
+  /* 左：圆环（转动）+ 音符 */
+  .m-ring{
+    position:relative;flex:0 0 auto;width:30px;height:30px;border-radius:50%;
+    display:grid;place-items:center;
+    box-shadow:inset 0 0 0 1px rgba(232,196,106,.30), 0 0 12px rgba(232,196,106,.14);
   }
-  .bars i:nth-child(1){background:linear-gradient(180deg,#FF8A8A,#FF5C5C)}
-  .bars i:nth-child(2){background:linear-gradient(180deg,#FFD98A,#FFB43A)}
-  .bars i:nth-child(3){background:linear-gradient(180deg,#9BF6C1,#3FD98A)}
-  .bars i:nth-child(4){background:linear-gradient(180deg,#8FD8FF,#3AA8FF)}
-  .bars i:nth-child(5){background:linear-gradient(180deg,#D3A6FF,#A45CFF)}
-  .music.playing .bars i{animation:jump .72s ease-in-out infinite}
-  .music.playing .bars i:nth-child(2){animation-delay:.10s}
-  .music.playing .bars i:nth-child(3){animation-delay:.22s}
-  .music.playing .bars i:nth-child(4){animation-delay:.06s}
-  .music.playing .bars i:nth-child(5){animation-delay:.18s}
-  .music.live .bars i{animation:none}
-  @keyframes jump{0%,100%{height:5px}50%{height:18px}}
-
-  .music .lbl{font-size:10.5px;letter-spacing:.06em;color:#9E9784;line-height:1}
+  .m-ring::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(255,226,150,0) 0deg, rgba(255,226,150,.92) 70deg,
+      rgba(232,196,106,.05) 150deg, rgba(255,226,150,0) 260deg, rgba(255,226,150,.30) 320deg, rgba(255,226,150,0) 360deg);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    opacity:.32;animation:mspin 2.6s linear infinite;
+  }
+  .music.playing .m-ring::before{opacity:1}
+  .music:not(.playing) .m-ring::before{animation-play-state:paused;opacity:.28}
+  @keyframes mspin{to{transform:rotate(360deg)}}
+  .m-ico{position:relative;font-size:16px;line-height:1;color:var(--gold-hi);text-shadow:0 0 10px rgba(232,196,106,.5)}
+  .music .lbl{font-size:11.5px;letter-spacing:.08em;color:#9E9784;line-height:1;transition:color .25s}
   .music.playing .lbl{color:var(--gold-hi)}
-  @keyframes spin{to{transform:rotate(360deg)}}
+
   .mhint{
     position:fixed;left:14px;top:calc(56px + env(safe-area-inset-top));z-index:20;max-width:200px;
     background:rgba(20,20,26,.96);border:1px solid rgba(232,196,106,.4);color:var(--gold-hi);
@@ -303,14 +292,6 @@
   @keyframes tapfx{0%{transform:translate(-50%,-50%) scale(0);opacity:.95}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
   @media (prefers-reduced-motion:reduce){.row-go.pressing,.enter.pressing{animation:none}.tapfx{display:none}}
 
-  /* 整条边框闪烁呼吸 */
-  .card.shop::before,.card.disk::before{
-    content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
-    border:1.5px solid rgba(255,226,150,1);
-    box-shadow:0 0 20px rgba(232,196,106,.85) inset, 0 0 16px rgba(232,196,106,.75), 0 0 30px rgba(232,196,106,.55);
-    opacity:0;animation:ringPulse 3.8s ease-in-out infinite;
-  }
-  @keyframes ringPulse{0%,100%{opacity:.18}50%{opacity:1}}
 
   /* 点击 / 滑动：彩色文字点缀 */
   .fxword{
@@ -426,9 +407,9 @@
   </div>
 </div>
 
-<button class="music" id="music" aria-label="背景音乐开关">
-  <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
-  <span class="lbl">音乐 关</span>
+<button class="music playing" id="music" aria-label="背景音乐开关">
+  <span class="m-ring"><span class="m-ico">♪</span></span>
+  <span class="lbl">开启</span>
 </button>
 <div class="mhint" id="mhint">点左上角 ♪ 播放音乐</div>
 
@@ -515,54 +496,11 @@
   let mHintTimer = null;
 
   const mLbl = mBtn.querySelector('.lbl');
-  const mBars = Array.prototype.slice.call(document.querySelectorAll('.bars i'));
-
-  // ---- 频谱：让音柱跟着节奏跳 ----
-  let actx = null, analyser = null, freq = null, raf = null, audioSrc = null;
-  function initAnalyser(){
-    if(analyser) return true;
-    try{
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if(!AC) return false;
-      actx = new AC();
-      audioSrc = actx.createMediaElementSource(bgm);
-      analyser = actx.createAnalyser();
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.75;
-      audioSrc.connect(analyser);
-      analyser.connect(actx.destination);
-      freq = new Uint8Array(analyser.frequencyBinCount);
-      mBtn.classList.add('live');
-      return true;
-    }catch(err){
-      return false;
-    }
-  }
-  function tick(){
-    if(!analyser) return;
-    analyser.getByteFrequencyData(freq);
-    for(let i=0;i<mBars.length;i++){
-      const v = (freq[2 + i * 2] || 0) / 255;
-      mBars[i].style.height = (4 + v * 15).toFixed(1) + 'px';
-    }
-    raf = requestAnimationFrame(tick);
-  }
-  function stopTick(){
-    if(raf){ cancelAnimationFrame(raf); raf = null; }
-    mBars.forEach(b => { b.style.height = '5px'; });
-  }
 
   function markPlaying(on){
     mBtn.classList.toggle('playing', on);
-    mLbl.textContent = on ? '音乐 开' : '音乐 关';
-    if(on){
-      if(initAnalyser()){
-        if(actx.state === 'suspended') actx.resume();
-        if(!raf) tick();
-      }
-    } else {
-      stopTick();
-    }
+    mLbl.textContent = on ? '开启' : '关闭';
+    mBtn.setAttribute('aria-label', on ? '背景音乐开关 开启中' : '背景音乐开关 已关闭');
   }
   function hintOnce(text){
     mHint.textContent = text;
@@ -593,7 +531,10 @@
   });
 
   // 任何一次点屏都尝试起播（绕过自动播放限制）
-  const kick = () => { if(bgm.paused && mBtn.style.display !== 'none') tryPlay(); };
+  const kick = (e) => {
+    if(e && e.target && e.target.closest && e.target.closest('#music')) return;  // 点音乐按钮本身不算“点屏起播”
+    if(bgm.paused && mBtn.style.display !== 'none') tryPlay();
+  };
   document.addEventListener('touchstart', kick, { once:true, passive:true });
   document.addEventListener('click', kick, { once:true });
 
