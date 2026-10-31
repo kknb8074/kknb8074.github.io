@@ -54,15 +54,14 @@
   }
   /* 外层卡片呼吸光：店铺 / 网盘下载 */
   .card.shop,.card.disk{animation:cardBreathe 3.8s ease-in-out infinite}
-  .card.disk{animation-delay:-1.9s}
   @keyframes cardBreathe{
     0%,100%{
-      border-color:rgba(232,196,106,.26);
-      box-shadow:0 0 16px rgba(232,196,106,.07), inset 0 1px 0 rgba(255,255,255,.04);
+      border-color:rgba(232,196,106,.30);
+      box-shadow:0 0 20px rgba(232,196,106,.12), inset 0 1px 0 rgba(255,255,255,.04);
     }
     50%{
-      border-color:rgba(232,196,106,.62);
-      box-shadow:0 0 28px rgba(232,196,106,.30), 0 0 64px rgba(232,196,106,.15), inset 0 1px 0 rgba(255,255,255,.07);
+      border-color:rgba(255,226,150,.95);
+      box-shadow:0 0 34px rgba(232,196,106,.55), 0 0 90px rgba(232,196,106,.34), 0 0 150px rgba(232,196,106,.16), inset 0 0 18px rgba(232,196,106,.16);
     }
   }
 
@@ -307,12 +306,11 @@
   /* 整条边框闪烁呼吸 */
   .card.shop::before,.card.disk::before{
     content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
-    border:1px solid rgba(232,196,106,.95);
-    box-shadow:0 0 12px rgba(232,196,106,.55) inset, 0 0 18px rgba(232,196,106,.45);
+    border:1.5px solid rgba(255,226,150,1);
+    box-shadow:0 0 20px rgba(232,196,106,.85) inset, 0 0 16px rgba(232,196,106,.75), 0 0 30px rgba(232,196,106,.55);
     opacity:0;animation:ringPulse 3.8s ease-in-out infinite;
   }
-  .card.disk::before{animation-delay:-1.9s}
-  @keyframes ringPulse{0%,100%{opacity:0}50%{opacity:1}}
+  @keyframes ringPulse{0%,100%{opacity:.18}50%{opacity:1}}
 
   /* 点击 / 滑动：彩色文字点缀 */
   .fxword{
