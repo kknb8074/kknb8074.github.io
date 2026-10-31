@@ -303,6 +303,30 @@
     background:radial-gradient(circle,rgba(255,248,224,.95) 0%,rgba(232,196,106,.6) 40%,rgba(232,196,106,0) 72%)}
   @keyframes tapfx{0%{transform:translate(-50%,-50%) scale(0);opacity:.95}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
   @media (prefers-reduced-motion:reduce){.row-go.pressing,.enter.pressing{animation:none}.tapfx{display:none}}
+
+  /* 整条边框闪烁呼吸 */
+  .card.shop::before,.card.disk::before{
+    content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
+    border:1px solid rgba(232,196,106,.95);
+    box-shadow:0 0 12px rgba(232,196,106,.55) inset, 0 0 18px rgba(232,196,106,.45);
+    opacity:0;animation:ringPulse 3.8s ease-in-out infinite;
+  }
+  .card.disk::before{animation-delay:-1.9s}
+  @keyframes ringPulse{0%,100%{opacity:0}50%{opacity:1}}
+
+  /* 点击 / 滑动：彩色文字点缀 */
+  .fxword{
+    position:fixed;pointer-events:none;z-index:9999;font-weight:800;letter-spacing:.04em;
+    white-space:nowrap;transform:translate(-50%,-50%);
+    text-shadow:0 0 10px currentColor,0 0 24px currentColor;
+    animation:fxRise .95s ease-out forwards;will-change:transform,opacity;
+  }
+  @keyframes fxRise{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.62)}
+    16%{opacity:1;transform:translate(-50%,-62%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-165%) scale(.9)}
+  }
+  @media (prefers-reduced-motion: reduce){.fxword{display:none}}
 </style>
 <!-- 51.LA 网站统计 -->
 <script charset="UTF-8" id="LA_COLLECT" src="https://sdk.51.la/js-sdk-pro.min.js"></script>
@@ -634,6 +658,50 @@
         }, DELAY);
       });
     });
+  })();
+</script>
+
+<script>
+  // ---- 点击 / 滑动彩色文字点缀 ----
+  (function(){
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var WORDS = ['小正','xz','XIAO ZHENG','XIAOZHENG'];
+    var idx = 0, lastHue = -999, lastT = 0;
+
+    function pickHue(){
+      var h;
+      do { h = Math.random() * 360; } while (Math.abs(h - lastHue) < 48);
+      lastHue = h;
+      return h;
+    }
+    function spawn(x, y){
+      if (x == null || y == null || isNaN(x) || isNaN(y)) return;
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return;
+      var el = document.createElement('div');
+      el.className = 'fxword';
+      el.textContent = WORDS[idx++ % WORDS.length];
+      el.style.color = 'hsl(' + Math.round(pickHue()) + ' 96% 63%)';
+      el.style.fontSize = (13 + Math.random() * 9).toFixed(1) + 'px';
+      el.style.left = (x + (Math.random() * 16 - 8)).toFixed(1) + 'px';
+      el.style.top  = (y + (Math.random() * 12 - 6)).toFixed(1) + 'px';
+      document.body.appendChild(el);
+      setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 1000);
+    }
+
+    document.addEventListener('touchstart', function(e){
+      var t = e.touches[0]; if (t) spawn(t.clientX, t.clientY);
+    }, {passive:true});
+
+    document.addEventListener('touchmove', function(e){
+      var now = Date.now();
+      if (now - lastT < 95) return;
+      lastT = now;
+      var t = e.touches[0]; if (t) spawn(t.clientX, t.clientY);
+    }, {passive:true});
+
+    document.addEventListener('click', function(e){
+      if (e.clientX || e.clientY) spawn(e.clientX, e.clientY);
+    }, true);
   })();
 </script>
 </body>
