@@ -426,12 +426,15 @@
   }
 
   // 点群按钮：能跳 QQ 就直接跳；跳不走（没装/没登录）就把群号放剪贴板
-  document.querySelectorAll('.qq').forEach(el => {
-    el.addEventListener('click', () => {
-      const num = el.dataset.num;
+  // 只有右侧「进群」按钮响应，卡片空白处点了没反应
+  document.querySelectorAll('.qq').forEach(row => {
+    const btn = row.querySelector('.row-go');
+    if(!btn) return;
+    btn.addEventListener('click', () => {
+      const num = row.dataset.num;
       if(navigator.vibrate) navigator.vibrate(12);
-      el.classList.add('copied');
-      setTimeout(() => el.classList.remove('copied'), 900);
+      row.classList.add('copied');
+      setTimeout(() => row.classList.remove('copied'), 900);
 
       let leftPage = false;
       const onVis = () => { if(document.visibilityState === 'hidden') leftPage = true; };
