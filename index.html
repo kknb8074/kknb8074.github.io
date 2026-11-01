@@ -70,6 +70,9 @@
     width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;
     background:#000;filter:contrast(1.04);
   }
+  /* ---------- 点头像的小彩蛋 ---------- */
+  .avatar-ring.egg-flip{animation:breathe 2.4s ease-in-out infinite, eggflip .8s cubic-bezier(.4,0,.2,1)}
+  @keyframes eggflip{0%{transform:rotateY(0)}50%{transform:rotateY(180deg)}100%{transform:rotateY(360deg)}}
   .brand{
     margin:18px 0 0;font-size:20px;font-weight:800;letter-spacing:.16em;
     background:linear-gradient(100deg,#B98A2E,#F8E3AE 46%,#B98A2E);
@@ -702,6 +705,34 @@
     tick();
     setInterval(tick, 1000);
   })();
+</script>
+<script>
+(function(){
+  var ring=document.querySelector('.avatar-ring');
+  if(!ring) return;
+  var img=ring.querySelector('img');
+  if(!img) return;
+  var orig=img.getAttribute('src'), egg='egg.jpg';
+  var busy=false, t1=null, t2=null;
+  function flip(cb){
+    ring.classList.remove('egg-flip');
+    void ring.offsetWidth;
+    ring.classList.add('egg-flip');
+    setTimeout(cb, 380);
+  }
+  img.addEventListener('error', function(){ if(img.getAttribute('src')===egg) img.src=orig; });
+  ring.addEventListener('click', function(){
+    if(busy) return;
+    busy=true;
+    flip(function(){ if(img.getAttribute('src')!==egg) img.src=egg; });
+    clearTimeout(t1); clearTimeout(t2);
+    t1=setTimeout(function(){
+      flip(function(){ img.src=orig; });
+      t2=setTimeout(function(){ busy=false; }, 900);
+    }, 3000);
+  });
+  setTimeout(function(){ var p=new Image(); p.src=egg; }, 2500);
+})();
 </script>
 </body>
 </html>
