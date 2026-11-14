@@ -59,7 +59,18 @@ textarea{width:100%;height:150px;border:1px solid var(--line);border-radius:12px
 <div class="card">
   <b style="font-size:15px">加一把 / 改这把</b>
   <div class="row" style="margin-top:10px"><input id="key" placeholder="买家的卡密原文（明文）" autocapitalize="off" autocorrect="off"></div>
-  <div class="row"><input id="exp" placeholder="有效期：7（天）或 2026-12-31 23:59 或 永久" autocapitalize="off" autocorrect="off"></div>
+  <div class="row" style="margin-top:10px"><input id="exp" placeholder="有效期：7（天）或 2026-12-31 23:59 或 永久" autocapitalize="off" autocorrect="off"></div>
+  <div class="acts" style="margin-top:8px">
+    <button class="ghost mini" onclick="设时长(0.5)">半天</button>
+    <button class="ghost mini" onclick="设时长(1)">1天</button>
+    <button class="ghost mini" onclick="设时长(3)">3天</button>
+    <button class="ghost mini" onclick="设时长(7)">1周</button>
+    <button class="ghost mini" onclick="设时长(15)">半个月</button>
+    <button class="ghost mini" onclick="设时长(30)">1个月</button>
+    <button class="ghost mini" onclick="设时长(90)">3个月</button>
+    <button class="ghost mini" onclick="设时长('永久')">永久</button>
+  </div>
+  <div class="muted" id="expprev" style="margin-top:6px">上面选「半天/1天…」直接填到期时刻，App 到点自动失效</div>
   <div class="row"><button style="flex:1" onclick="addKey()">加入列表</button></div>
   <div class="muted" style="margin-top:8px">写数字 = 从今天这个点算几天；也可以直接写到期日期；「永久」就不限制</div>
 </div>
@@ -95,6 +106,21 @@ function parseExp(s){
   if(!m) return undefined;
   const d=new Date(+m[1],+m[2]-1,+m[3],m[4]?+m[4]:23,m[5]?+m[5]:59,m[6]?+m[6]:59);
   return nowStr(d);
+}
+function 时长名(n){return {'0.5':'半天','1':'1天','3':'3天','7':'1周','15':'半个月','30':'1个月','90':'3个月','永久':'永久'}[String(n)]||String(n)+'天'}
+function 设时长(n){
+  if(n==='永久'){$('exp').value='永久';刷新到期预览('永久');return}
+  const d=new Date(Date.now()+n*86400000);
+  $('exp').value=nowStr(d);
+  刷新到期预览();
+  log('有效期选成 '+时长名(n)+'：'+nowStr(d)+'\n（填卡密原文后点「加入列表」，或点某张卡下面的「改成我的到期」）');
+}
+function 刷新到期预览(v){
+  const el=$('expprev'); if(!el) return;
+  const t=(v!==undefined?v:parseExp($('exp').value));
+  if(t===undefined){el.textContent='看不懂这个格式，写数字天数、日期时间或「永久」';return}
+  if(!t){el.textContent='还没填有效期';return}
+  el.textContent='到期：'+(t==='永久'?'永久（不过期）':t);
 }
 function leftDays(exp){
   if(exp==='永久') return '永久';
@@ -148,6 +174,9 @@ function render(){
   $('saveBtn').classList.toggle('dirty',dirty);
 }
 function touch(){dirty=true;render()}
+document.addEventListener('DOMContentLoaded',function(){
+  const e=$('exp'); if(e) e.addEventListener('input',function(){刷新到期预览()});
+})
 function bump(i,days){
   const r=rows[i];const base=(r.exp&&r.exp!=='永久')?Date.parse(r.exp.replace(/-/g,'/')):Date.now();
   const t=new Date((isNaN(base)?Date.now():base)+days*86400000);
