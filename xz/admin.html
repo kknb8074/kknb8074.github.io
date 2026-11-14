@@ -89,7 +89,7 @@ function nowStr(d){d=d||new Date();return d.getFullYear()+'-'+fmt(d.getMonth()+1
 function parseExp(s){
   s=(s||'').trim();
   if(!s) return null;
-  if(s==='永久'||s==='永久有效') return 'inf';
+  if(s==='永久'||s==='永久有效'||s==='inf') return '永久';
   if(/^[0-9]+$/.test(s)){const d=new Date(Date.now()+parseInt(s,10)*86400000);return nowStr(d)}
   const m=s.match(/^(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})[日]?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if(!m) return undefined;
