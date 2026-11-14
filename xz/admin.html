@@ -44,7 +44,8 @@ textarea{width:100%;height:150px;border:1px solid var(--line);border-radius:12px
 <div class="card" id="patCard">
   <div class="muted" style="margin-bottom:8px">第一次用：填 GitHub 令牌（只存在这台手机里，不会发到别处）</div>
   <div class="row"><input id="pat" type="password" placeholder="粘贴 GitHub token（repo 写权限）"><button class="ghost mini" onclick="savePat()">记住</button></div>
-  <div class="muted" style="margin-top:8px">只读模式：不填令牌也能看列表，但改不了</div>
+  <div class="row" style="margin-top:8px"><button class="ghost mini" onclick="testPat(1)">测一下这块令牌能不能用</button></div>
+  <div class="muted" id="patstat" style="margin-top:8px">只读模式：不填令牌也能看列表，但改不了</div>
 </div>
 
 <div class="card">
@@ -162,14 +163,39 @@ async function addKey(){
   $('key').value='';touch();
   log('已算好：'+h+'\n（还没保存，点下面「保存到网站」才生效）');
 }
-function savePat(){$('pat').value=$('pat').value.trim();localStorage.setItem('xz_pat',$('pat').value||'');log('令牌已存在本机');load()}
-function pat(){return ($('pat').value||localStorage.getItem('xz_pat')||'').trim()}
+function cleanPat(s){return (s||'').replace(/[\s\u200b-\u200f\ufeff]/g,'').replace(/^["'`]+|["'`]+$/g,'').replace(/^(bearer|token)/i,'')}
+function savePat(){
+  const v=cleanPat($('pat').value);$('pat').value=v;
+  localStorage.setItem('xz_pat',v);
+  log(v?'令牌已存在本机':'令牌已清空');
+  if(v)testPat(0);else load();
+}
+function pat(){const a=cleanPat($('pat').value);return a||cleanPat(localStorage.getItem('xz_pat'))}
+async function testPat(说){
+  const t=pat(),st=$('patstat');
+  if(!t){st.textContent='没有令牌：只能看，不能改';if(说)log('没填令牌');return false}
+  st.textContent='测试令牌中…';
+  try{
+    const r=await fetch('https://api.github.com/user',{headers:{'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json'}});
+    if(r.status===401){st.innerHTML='<b style="color:#DC2626">令牌无效（401）</b>　重粘一次，或去 GitHub 重新生成';if(说)log('令牌无效，所以保存会失败');return false}
+    if(!r.ok){st.textContent='测试失败 HTTP '+r.status;return false}
+    const j=await r.json();
+    st.innerHTML='<b style="color:#16A34A">令牌可用</b>　账号 '+j.login+' · '+t.length+' 位';
+    if(说)log('令牌没问题，可以保存了');
+    return true;
+  }catch(e){st.textContent='测试出错：'+e.message;return false}
+}
+function decodeContent(j){return new TextDecoder().decode(Uint8Array.from(atob((j.content||'').replace(/\n/g,'')),c=>c.charCodeAt(0)))}
 async function api(method,body){
   const t=pat();if(!t)throw new Error('没填 GitHub 令牌，只能看不能改');
   const r=await fetch('https://api.github.com/repos/'+OWNER+'/'+REPO+'/contents/'+PATH,{
     method,headers:{'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
     body:body?JSON.stringify(body):undefined});
-  if(!r.ok){const e=await r.text();throw new Error('GitHub '+r.status+'：'+e.slice(0,180))}
+  if(!r.ok){
+    const e=await r.text();
+    if(r.status===401||r.status===403)throw new Error('令牌被 GitHub 拒了（'+r.status+'），在最上面那块点「测一下这块令牌能不能用」');
+    throw new Error('GitHub '+r.status+'：'+e.slice(0,180))
+  }
   return r.json();
 }
 async function load(){
@@ -178,31 +204,45 @@ async function load(){
     if(pat()){
       const j=await api('GET');
       sha=j.sha;
-      const txt=new TextDecoder().decode(Uint8Array.from(atob(j.content.replace(/\n/g,'')),c=>c.charCodeAt(0)));
-      parse(txt);dirty=false;render();log('已从 GitHub 读取 '+rows.length+' 条（可编辑）');
+      parse(decodeContent(j));dirty=false;render();log('已从 GitHub 读取 '+rows.length+' 条（可编辑）');
     }else{
       const r=await fetch(READ+'?t='+Date.now(),{cache:'no-store'});
       if(!r.ok) throw new Error('HTTP '+r.status);
       parse(await r.text());sha=null;dirty=false;render();
       log('只读模式：读到 '+rows.length+' 条。填了令牌才能改');
     }
-  }catch(e){log('读取失败：'+e.message);$('list').innerHTML='<div class="muted" style="margin-top:10px">读取失败，检查网络</div>'}
+  }catch(e){
+    log('读取失败：'+e.message);
+    $('list').innerHTML='<div class="muted" style="margin-top:10px">读取失败：'+e.message+'</div>';
+  }
 }
 async function save(){
-  if(!pat()){alert('先填 GitHub 令牌（card 第一块）');return}
+  if(!pat()){alert('先填 GitHub 令牌（最上面那块）');return}
   try{
     log('保存中…');
+    if(!sha){
+      const j=await api('GET');sha=j.sha;
+      const 线上条数=decodeContent(j).split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#')).length;
+      if(线上条数>rows.length){
+        if(!confirm('小心：线上现在有 '+线上条数+' 条，这页只有 '+rows.length+' 条。\n直接保存会把线上多出来的删掉。\n\n建议先点「重读」再改。真要覆盖就点确定。')){log('已取消保存');return}
+      }
+    }
     const c=btoa(unescape(encodeURIComponent(build())));
-    if(!sha){const j=await api('GET');sha=j.sha}
     await api('PUT',{message:'更新卡密表 '+nowStr(),content:c,branch:BRANCH,sha});
     dirty=false;render();
     log('已保存 ✓  GitHub Pages 大概 1 分钟刷新，App 下次启动就认。');
     setTimeout(load,1500);
-  }catch(e){log('保存失败：'+e.message)}
+  }catch(e){log('保存失败：'+e.message);testPat(0)}
 }
 function fromRaw(){parse($('raw').value);dirty=true;render();log('已按手改内容更新列表，别忘了保存')}
+(function(){
+  const m=(location.hash||'').match(/^#pat=(.+)$/);
+  if(m){try{localStorage.setItem('xz_pat',cleanPat(decodeURIComponent(m[1])))}catch(e){}
+    try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+})();
 $('pat').value=localStorage.getItem('xz_pat')||'';
 load();
+if(pat())testPat(0);
 </script>
 </body>
 </html>
