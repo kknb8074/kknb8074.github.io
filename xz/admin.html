@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>小正注入 · 卡密后台</title>
+<style>
+:root{--blue:#2F6BE8;--ink:#111827;--gray:#6B7280;--line:#E5E7EB;--bg:#F5F6F8;--ok:#16A34A;--bad:#DC2626}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;padding:16px 14px 90px}
+h1{font-size:19px;margin:6px 0 2px}
+.sub{color:var(--gray);font-size:12.5px;margin-bottom:14px}
+.card{background:#fff;border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.row{display:flex;gap:8px;align-items:center}
+.row+.row{margin-top:8px}
+input{flex:1;min-width:0;border:1px solid var(--line);background:#F9FAFB;border-radius:12px;padding:11px 12px;font-size:14.5px;color:var(--ink);outline:none}
+input:focus{border-color:var(--blue);background:#fff}
+button{border:0;border-radius:12px;padding:11px 14px;font-size:14.5px;font-weight:600;color:#fff;background:var(--blue)}
+button.ghost{background:#EEF2FB;color:var(--blue)}
+button.warn{background:#FDECEC;color:var(--bad)}
+button.mini{padding:7px 10px;font-size:12.5px;border-radius:10px}
+.muted{color:var(--gray);font-size:12.5px}
+.item{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;margin-top:10px}
+.item .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hash{font:600 13.5px/1.3 ui-monospace,Menlo,monospace;letter-spacing:.4px}
+.exp{font-size:13px;color:var(--ink)}
+.exp b{color:var(--blue)}
+.tag{font-size:11.5px;padding:2px 8px;border-radius:999px;background:#EEF2FB;color:var(--blue)}
+.tag.stop{background:#FDECEC;color:var(--bad)}
+.tag.perm{background:#EAF7EE;color:var(--ok)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;gap:10px}
+.bar button{flex:1;padding:13px}
+#log{font-size:12.5px;color:var(--gray);white-space:pre-wrap;word-break:break-all}
+.dirty{color:var(--bad)}
+details summary{font-size:13px;color:var(--gray);padding:6px 0}
+textarea{width:100%;height:150px;border:1px solid var(--line);border-radius:12px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,monospace;background:#F9FAFB}
+</style>
+</head>
+<body>
+<h1>小正注入 · 卡密后台</h1>
+<div class="sub">改到期时间 / 停用卡密，保存后 App 下次启动就认，不用重新打包</div>
+
+<div class="card" id="patCard">
+  <div class="muted" style="margin-bottom:8px">第一次用：填 GitHub 令牌（只存在这台手机里，不会发到别处）</div>
+  <div class="row"><input id="pat" type="password" placeholder="粘贴 GitHub token（repo 写权限）"><button class="ghost mini" onclick="savePat()">记住</button></div>
+  <div class="muted" style="margin-top:8px">只读模式：不填令牌也能看列表，但改不了</div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <b style="font-size:15px">卡密列表</b>
+    <button class="ghost mini" onclick="load()">重新读取</button>
+  </div>
+  <div id="list"><div class="muted" style="margin-top:10px">读取中…</div></div>
+</div>
+
+<div class="card">
+  <b style="font-size:15px">加一把 / 改这把</b>
+  <div class="row" style="margin-top:10px"><input id="key" placeholder="买家的卡密原文（明文）" autocapitalize="off" autocorrect="off"></div>
+  <div class="row"><input id="exp" placeholder="有效期：7（天）或 2026-12-31 23:59 或 永久" autocapitalize="off" autocorrect="off"></div>
+  <div class="row"><button style="flex:1" onclick="addKey()">加入列表</button></div>
+  <div class="muted" style="margin-top:8px">写数字 = 从今天这个点算几天；也可以直接写到期日期；「永久」就不限制</div>
+</div>
+
+<details class="card">
+  <summary>直接看/改原始文件（高级）</summary>
+  <textarea id="raw" spellcheck="false"></textarea>
+  <div class="row" style="margin-top:8px"><button class="ghost mini" onclick="fromRaw()">按上面的内容刷新列表</button></div>
+</details>
+
+<div class="card"><div id="log">就绪</div></div>
+
+<div class="bar">
+  <button class="ghost" onclick="load()">重读</button>
+  <button id="saveBtn" onclick="save()">保存到网站</button>
+</div>
+
+<script>
+const OWNER='kknb8074', REPO='kknb8074.github.io', PATH='xz/lic.txt', BRANCH='main';
+const SALT='xz3.0-salt-5f1c9e';
+const READ='https://xn--yetq07a.top/xz/lic.txt';
+let rows=[], head=[], sha=null, dirty=false;
+const $=id=>document.getElementById(id);
+const log=t=>{$('log').textContent=t};
+const fmt=n=>String(n).padStart(2,'0');
+function nowStr(d){d=d||new Date();return d.getFullYear()+'-'+fmt(d.getMonth()+1)+'-'+fmt(d.getDate())+' '+fmt(d.getHours())+':'+fmt(d.getMinutes())+':'+fmt(d.getSeconds())}
+function parseExp(s){
+  s=(s||'').trim();
+  if(!s) return null;
+  if(s==='永久'||s==='永久有效') return 'inf';
+  if(/^[0-9]+$/.test(s)){const d=new Date(Date.now()+parseInt(s,10)*86400000);return nowStr(d)}
+  const m=s.match(/^(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})[日]?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if(!m) return undefined;
+  const d=new Date(+m[1],+m[2]-1,+m[3],m[4]?+m[4]:23,m[5]?+m[5]:59,m[6]?+m[6]:59);
+  return nowStr(d);
+}
+function leftDays(exp){
+  if(exp==='永久') return '永久';
+  const t=Date.parse(exp.replace(/-/g,'/'));
+  if(isNaN(t)) return '格式?';
+  const d=Math.ceil((t-Date.now())/86400000);
+  return d>=0?('剩 '+d+' 天'):('已过 '+(-d)+' 天');
+}
+async function sha16(txt){
+  const buf=new TextEncoder().encode(SALT+txt.trim().toLowerCase());
+  const h=await crypto.subtle.digest('SHA-256',buf);
+  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,16);
+}
+function parse(text){
+  head=[];rows=[];
+  text.split(/\r?\n/).forEach(line=>{
+    const t=line.trim();
+    if(!t) return;
+    if(t.startsWith('#')){head.push(t);return}
+    const p=t.split('|');
+    if(p.length>=2&&p[0].length>=8) rows.push({hash:p[0].slice(0,16).toLowerCase(),exp:(p[1]||'').trim(),stop:(p[2]||'0').trim()==='1'});
+  });
+}
+function build(){
+  const lines=head.slice();
+  rows.forEach(r=>lines.push(r.hash+'|'+(r.exp||'永久')+'|'+(r.stop?1:0)));
+  return lines.join('\n')+'\n';
+}
+function render(){
+  if(!rows.length){$('list').innerHTML='<div class="muted" style="margin-top:10px">还没有卡密</div>';}
+  else{
+  $('list').innerHTML=rows.map((r,i)=>{
+    const tag=r.stop?'<span class="tag stop">已停用</span>':(r.exp==='永久'?'<span class="tag perm">永久</span>':'<span class="tag">正常</span>');
+    return `<div class="item"><div class="top"><span class="hash">${r.hash}</span>${tag}</div>
+      <div class="exp">到期：<b>${r.exp||'永久'}</b> <span class="muted">${leftDays(r.exp||'永久')}</span></div>
+      <div class="acts">
+        <button class="ghost mini" onclick="bump(${i},7)">+7天</button>
+        <button class="ghost mini" onclick="bump(${i},30)">+30天</button>
+        <button class="ghost mini" onclick="mine(${i})">改成我的到期</button>
+        <button class="warn mini" onclick="stop(${i})">${r.stop?'恢复':'停用'}</button>
+        <button class="warn mini" onclick="del(${i})">删除</button>
+      </div></div>`}).join('');
+  }
+  $('raw').value=build();
+  $('saveBtn').textContent=dirty?'保存到网站 •':'保存到网站';
+  $('saveBtn').classList.toggle('dirty',dirty);
+}
+function touch(){dirty=true;render()}
+function bump(i,days){
+  const r=rows[i];const base=(r.exp&&r.exp!=='永久')?Date.parse(r.exp.replace(/-/g,'/')):Date.now();
+  const t=new Date((isNaN(base)?Date.now():base)+days*86400000);
+  r.exp=nowStr(t);r.stop=false;touch();
+}
+function mine(i){const v=parseExp($('exp').value);if(v===undefined){alert('到期格式看不懂');return}if(!v){alert('先在上面的输入框写个到期');return}rows[i].exp=v;rows[i].stop=false;touch()}
+function stop(i){rows[i].stop=!rows[i].stop;touch()}
+function del(i){if(!confirm('删掉 '+rows[i].hash+' ?'))return;rows.splice(i,1);touch()}
+async function addKey(){
+  const k=$('key').value.trim();
+  if(!k){alert('先填卡密原文');return}
+  const v=parseExp($('exp').value);
+  if(v===undefined){alert('到期格式看不懂，写 7 或者 2026-12-31 23:59 或者 永久');return}
+  const h=await sha16(k);
+  const i=rows.findIndex(r=>r.hash===h);
+  if(i>=0){rows[i].exp=v||'永久';rows[i].stop=false}
+  else rows.push({hash:h,exp:v||'永久',stop:false});
+  $('key').value='';touch();
+  log('已算好：'+h+'\n（还没保存，点下面「保存到网站」才生效）');
+}
+function savePat(){$('pat').value=$('pat').value.trim();localStorage.setItem('xz_pat',$('pat').value||'');log('令牌已存在本机');load()}
+function pat(){return ($('pat').value||localStorage.getItem('xz_pat')||'').trim()}
+async function api(method,body){
+  const t=pat();if(!t)throw new Error('没填 GitHub 令牌，只能看不能改');
+  const r=await fetch('https://api.github.com/repos/'+OWNER+'/'+REPO+'/contents/'+PATH,{
+    method,headers:{'Authorization':'Bearer '+t,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined});
+  if(!r.ok){const e=await r.text();throw new Error('GitHub '+r.status+'：'+e.slice(0,180))}
+  return r.json();
+}
+async function load(){
+  $('list').innerHTML='<div class="muted" style="margin-top:10px">读取中…</div>';
+  try{
+    if(pat()){
+      const j=await api('GET');
+      sha=j.sha;
+      const txt=new TextDecoder().decode(Uint8Array.from(atob(j.content.replace(/\n/g,'')),c=>c.charCodeAt(0)));
+      parse(txt);dirty=false;render();log('已从 GitHub 读取 '+rows.length+' 条（可编辑）');
+    }else{
+      const r=await fetch(READ+'?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      parse(await r.text());sha=null;dirty=false;render();
+      log('只读模式：读到 '+rows.length+' 条。填了令牌才能改');
+    }
+  }catch(e){log('读取失败：'+e.message);$('list').innerHTML='<div class="muted" style="margin-top:10px">读取失败，检查网络</div>'}
+}
+async function save(){
+  if(!pat()){alert('先填 GitHub 令牌（card 第一块）');return}
+  try{
+    log('保存中…');
+    const c=btoa(unescape(encodeURIComponent(build())));
+    if(!sha){const j=await api('GET');sha=j.sha}
+    await api('PUT',{message:'更新卡密表 '+nowStr(),content:c,branch:BRANCH,sha});
+    dirty=false;render();
+    log('已保存 ✓  GitHub Pages 大概 1 分钟刷新，App 下次启动就认。');
+    setTimeout(load,1500);
+  }catch(e){log('保存失败：'+e.message)}
+}
+function fromRaw(){parse($('raw').value);dirty=true;render();log('已按手改内容更新列表，别忘了保存')}
+$('pat').value=localStorage.getItem('xz_pat')||'';
+load();
+</script>
+</body>
+</html>
