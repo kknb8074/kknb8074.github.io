@@ -123,13 +123,18 @@ function build(){
   rows.forEach(r=>lines.push(r.hash+'|'+(r.exp||'永久')+'|'+(r.stop?1:0)));
   return lines.join('\n')+'\n';
 }
+function 明文表(){try{return JSON.parse(localStorage.getItem('xz_ming')||'{}')}catch(e){return {}}}
+function 记明文(h,k){if(!h||!k)return;const m=明文表();m[h]=k;try{localStorage.setItem('xz_ming',JSON.stringify(m))}catch(e){}}
+function 删明文(h){const m=明文表();delete m[h];try{localStorage.setItem('xz_ming',JSON.stringify(m))}catch(e){}}
 function render(){
   if(!rows.length){$('list').innerHTML='<div class="muted" style="margin-top:10px">还没有卡密</div>';}
   else{
+  const 明文=明文表();
   $('list').innerHTML=rows.map((r,i)=>{
     const tag=r.stop?'<span class="tag stop">已停用</span>':(r.exp==='永久'?'<span class="tag perm">永久</span>':'<span class="tag">正常</span>');
+    const 明文行=明文[r.hash]?'<div class="muted" style="margin-top:4px">明文：<b>'+明文[r.hash]+'</b></div>':'';
     return `<div class="item"><div class="top"><span class="hash">${r.hash}</span>${tag}</div>
-      <div class="exp">到期：<b>${r.exp||'永久'}</b> <span class="muted">${leftDays(r.exp||'永久')}</span></div>
+      <div class="exp">到期：<b>${r.exp||'永久'}</b> <span class="muted">${leftDays(r.exp||'永久')}</span></div>${明文行}
       <div class="acts">
         <button class="ghost mini" onclick="bump(${i},7)">+7天</button>
         <button class="ghost mini" onclick="bump(${i},30)">+30天</button>
@@ -150,7 +155,7 @@ function bump(i,days){
 }
 function mine(i){const v=parseExp($('exp').value);if(v===undefined){alert('到期格式看不懂');return}if(!v){alert('先在上面的输入框写个到期');return}rows[i].exp=v;rows[i].stop=false;touch()}
 function stop(i){rows[i].stop=!rows[i].stop;touch()}
-function del(i){if(!confirm('删掉 '+rows[i].hash+' ?'))return;rows.splice(i,1);touch()}
+function del(i){if(!confirm('删掉 '+rows[i].hash+' ?'))return;删明文(rows[i].hash);rows.splice(i,1);touch()}
 async function addKey(){
   const k=$('key').value.trim();
   if(!k){alert('先填卡密原文');return}
@@ -160,8 +165,9 @@ async function addKey(){
   const i=rows.findIndex(r=>r.hash===h);
   if(i>=0){rows[i].exp=v||'永久';rows[i].stop=false}
   else rows.push({hash:h,exp:v||'永久',stop:false});
+  记明文(h,k);
   $('key').value='';touch();
-  log('已算好：'+h+'\n（还没保存，点下面「保存到网站」才生效）');
+  log('已算好：'+h+'\n明文「'+k+'」只记在这台手机里，好让你以后知道这行是哪把卡\n（还没保存，点下面「保存到网站」才生效）');
 }
 function cleanPat(s){return (s||'').replace(/[\s\u200b-\u200f\ufeff]/g,'').replace(/^["'`]+|["'`]+$/g,'').replace(/^(bearer|token)/i,'')}
 function savePat(){
